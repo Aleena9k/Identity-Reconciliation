@@ -8,14 +8,14 @@ export const identifyService = async (email, phoneNumber) => {
 
     // 1️⃣ Find direct matches
     const [matches] = await connection.query(
-      `SELECT * FROM Contact WHERE email = ? OR phoneNumber = ?`,
+      `SELECT * FROM contacts WHERE email = ? OR phoneNumber = ?`,
       [email, phoneNumber]
     );
 
     // 2️⃣ If no matches → create new PRIMARY
     if (matches.length === 0) {
       const [result] = await connection.query(
-        `INSERT INTO Contact (email, phoneNumber, linkPrecedence)
+        `INSERT INTO contacts (email, phoneNumber, linkPrecedence)
          VALUES (?, ?, 'primary')`,
         [email || null, phoneNumber || null]
       );
@@ -34,7 +34,7 @@ export const identifyService = async (email, phoneNumber) => {
         record.id !== primary.id
       ) {
         await connection.query(
-          `UPDATE Contact
+          `UPDATE contacts
            SET linkPrecedence='secondary', linkedId=?
            WHERE id=?`,
           [primary.id, record.id]
@@ -44,7 +44,7 @@ export const identifyService = async (email, phoneNumber) => {
 
     // 5️⃣ Fetch full identity cluster
     const [cluster] = await connection.query(
-      `SELECT * FROM Contact WHERE id=? OR linkedId=?`,
+      `SELECT * FROM contacts WHERE id=? OR linkedId=?`,
       [primary.id, primary.id]
     );
 
@@ -57,7 +57,7 @@ export const identifyService = async (email, phoneNumber) => {
       (phoneNumber && !phoneExists)
     ) {
       await connection.query(
-        `INSERT INTO Contact (email, phoneNumber, linkedId, linkPrecedence)
+        `INSERT INTO contacts (email, phoneNumber, linkedId, linkPrecedence)
          VALUES (?, ?, ?, 'secondary')`,
         [email || null, phoneNumber || null, primary.id]
       );
@@ -91,7 +91,7 @@ async function resolvePrimary(connection, matches) {
   const linkedId = matches[0].linkedId;
 
   const [rows] = await connection.query(
-    `SELECT * FROM Contact WHERE id = ?`,
+    `SELECT * FROM contacts WHERE id = ?`,
     [linkedId]
   );
 
@@ -101,28 +101,28 @@ async function resolvePrimary(connection, matches) {
 // 🧱 Final Response Builder
 async function buildResponse(connection, primaryId) {
   const [rows] = await connection.query(
-    `SELECT * FROM Contact WHERE id=? OR linkedId=?`,
+    `SELECT * FROM contacts WHERE id=? OR linkedId=?`,
     [primaryId, primaryId]
   );
 
   const emails = [];
   const phoneNumbers = [];
-  const secondaryContactIds = [];
+  const secondarycontactsIds = [];
 
   for (const r of rows) {
     if (r.email && !emails.includes(r.email)) emails.push(r.email);
     if (r.phoneNumber && !phoneNumbers.includes(r.phoneNumber))
       phoneNumbers.push(r.phoneNumber);
     if (r.linkPrecedence === "secondary")
-      secondaryContactIds.push(r.id);
+      secondarycontactsIds.push(r.id);
   }
 
   return {
-    contact: {
+    contacts: {
       primaryContatctId: primaryId,
       emails,
       phoneNumbers,
-      secondaryContactIds
+      secondarycontactsIds
     }
   };
 }
